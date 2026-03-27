@@ -1,0 +1,206 @@
+{% extends "base.html" %}
+{% block title %}Can you create a ticket for this?{% endblock %}
+
+{% block head %}
+<style>
+  .tabs { display: flex; gap: 0; margin-bottom: 24px; border-bottom: 2px solid #dfe1e6; }
+  .tab-btn {
+    padding: 10px 24px;
+    font-size: .9rem;
+    font-weight: 600;
+    cursor: pointer;
+    border: none;
+    background: none;
+    color: #5e6c84;
+    border-bottom: 3px solid transparent;
+    margin-bottom: -2px;
+    transition: color .15s;
+  }
+  .tab-btn.active { color: #0052cc; border-bottom-color: #0052cc; }
+  .tab-panel { display: none; }
+  .tab-panel.active { display: block; }
+
+  .divider {
+    border: none;
+    border-top: 2px dashed #dfe1e6;
+    margin: 24px 0;
+  }
+
+  .drop-zone {
+    border: 2px dashed #dfe1e6;
+    border-radius: 6px;
+    padding: 24px;
+    text-align: center;
+    color: #5e6c84;
+    font-size: .88rem;
+    cursor: pointer;
+    transition: border-color .15s, background .15s;
+  }
+  .drop-zone.dragover { border-color: #0052cc; background: #e6f0ff; }
+  .drop-zone input[type=file] { display: none; }
+  .file-list { margin-top: 12px; display: flex; flex-wrap: wrap; gap: 8px; }
+  .file-pill {
+    background: #f4f5f7;
+    border: 1px solid #dfe1e6;
+    border-radius: 20px;
+    padding: 4px 10px 4px 12px;
+    font-size: .8rem;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .file-pill button {
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: #5e6c84;
+    font-size: 1rem;
+    line-height: 1;
+    padding: 0;
+  }
+  .file-pill button:hover { color: #de350b; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="card">
+  <h2>Can you create a ticket for this?</h2>
+
+  {% if error %}
+  <div class="alert alert-error">{{ error }}</div>
+  {% endif %}
+
+  <div class="tabs">
+    <button class="tab-btn active" onclick="switchTab('url', this)">🔗 Thread URL</button>
+    <button class="tab-btn" onclick="switchTab('paste', this)">📋 Paste Thread Text</button>
+  </div>
+
+  <!-- Shared form wraps both tabs so we can have shared fields -->
+  <form action="/analyze" method="POST" enctype="multipart/form-data" onsubmit="setLoading(this)" id="mainForm">
+
+    <!-- Tab 1: URL -->
+    <div class="tab-panel active" id="tab-url">
+      <div class="form-row">
+        <label for="slack_urls">Slack Thread URL(s) — one per line</label>
+        <textarea
+          id="slack_urls"
+          name="slack_urls"
+          rows="4"
+          placeholder="https://yourworkspace.slack.com/archives/C12345/p1234567890123456"
+        ></textarea>
+      </div>
+    </div>
+
+    <!-- Tab 2: Paste -->
+    <div class="tab-panel" id="tab-paste">
+      <div class="form-row">
+        <label for="thread_text">Paste Thread Text</label>
+        <textarea
+          id="thread_text"
+          name="thread_text"
+          rows="8"
+          placeholder="Alice: Should we add a loading spinner to the submit button?&#10;&#10;Bob: Yes, good idea — it should show while the request is in progress."
+        ></textarea>
+      </div>
+    </div>
+
+    <input type="hidden" name="input_mode" id="input_mode" value="url" />
+
+    <hr class="divider" />
+
+    <!-- Shared: Instructions / context -->
+    <div class="form-row">
+      <label for="instructions">Instructions &amp; context <span style="font-weight:400;color:#5e6c84;">(optional)</span></label>
+      <textarea
+        id="instructions"
+        name="instructions"
+        rows="4"
+        placeholder="e.g. Keep this specific to the iOS app."
+      ></textarea>
+    </div>
+
+    <!-- Shared: Additional attachments -->
+    <div class="form-row">
+      <label>Additional attachments <span style="font-weight:400;color:#5e6c84;">(optional — images, docs, screenshots)</span></label>
+      <div class="drop-zone" id="dropZone" onclick="document.getElementById('fileInput').click()">
+        <input type="file" id="fileInput" name="extra_files" multiple accept="image/*,.pdf,.doc,.docx,.txt,.csv" />
+        📎 Click to add files or drag &amp; drop here
+        <div class="file-list" id="fileList"></div>
+      </div>
+    </div>
+
+    <button type="submit" class="btn btn-primary" id="submitBtn">Analyze →</button>
+  </form>
+</div>
+
+<div class="card" style="font-size:.85rem;color:#5e6c84;">
+  <h3>How it works</h3>
+  <ol style="padding-left:20px;line-height:2;">
+    <li>Provide a Slack thread via URL or paste the text</li>
+    <li>Add any instructions, context, or extra attachments</li>
+    <li>GPT-4o analyzes everything and drafts Jira ticket(s)</li>
+    <li>Review and edit — then create in Jira with one click</li>
+  </ol>
+</div>
+
+<script>
+  const tabState = { current: "url" };
+
+  function switchTab(name, btn) {
+    document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
+    document.querySelectorAll(".tab-panel").forEach(p => p.classList.remove("active"));
+    btn.classList.add("active");
+    document.getElementById("tab-" + name).classList.add("active");
+    document.getElementById("input_mode").value = name;
+    tabState.current = name;
+  }
+
+  function setLoading(form) {
+    const btn = document.getElementById("submitBtn");
+    btn.textContent = "Analyzing… this may take 15–30s";
+    btn.disabled = true;
+  }
+
+  // Drag & drop
+  const dropZone = document.getElementById("dropZone");
+  const fileInput = document.getElementById("fileInput");
+  const fileList = document.getElementById("fileList");
+  let selectedFiles = new DataTransfer();
+
+  dropZone.addEventListener("dragover", e => { e.preventDefault(); dropZone.classList.add("dragover"); });
+  dropZone.addEventListener("dragleave", () => dropZone.classList.remove("dragover"));
+  dropZone.addEventListener("drop", e => {
+    e.preventDefault();
+    dropZone.classList.remove("dragover");
+    addFiles(e.dataTransfer.files);
+  });
+
+  fileInput.addEventListener("change", () => addFiles(fileInput.files));
+
+  function addFiles(files) {
+    for (const f of files) selectedFiles.items.add(f);
+    fileInput.files = selectedFiles.files;
+    renderFileList();
+  }
+
+  function removeFile(name) {
+    const dt = new DataTransfer();
+    for (const f of selectedFiles.files) {
+      if (f.name !== name) dt.items.add(f);
+    }
+    selectedFiles = dt;
+    fileInput.files = selectedFiles.files;
+    renderFileList();
+  }
+
+  function renderFileList() {
+    fileList.innerHTML = "";
+    for (const f of selectedFiles.files) {
+      const pill = document.createElement("div");
+      pill.className = "file-pill";
+      pill.innerHTML = `📄 ${f.name} <button type="button" onclick="removeFile('${f.name}')" title="Remove">×</button>`;
+      fileList.appendChild(pill);
+    }
+  }
+</script>
+{% endblock %}

@@ -1,0 +1,7 @@
+flask==3.0.3
+openai>=1.52.0
+slack-sdk==3.31.0
+jira==3.8.0
+python-dotenv==1.0.1
+requests==2.32.3
+pillow==10.4.0

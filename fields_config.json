@@ -1,0 +1,79 @@
+[
+  {
+    "key": "summary",
+    "label": "Summary",
+    "type": "text",
+    "jira_field": "summary",
+    "jira_type": "string",
+    "required": true,
+    "placeholder": "Short action-oriented title (under 80 chars)",
+    "options": [],
+    "default": ""
+  },
+  {
+    "key": "issue_type",
+    "label": "Issue Type",
+    "type": "select",
+    "jira_field": "issuetype",
+    "jira_type": "object_name",
+    "required": true,
+    "placeholder": "",
+    "options": ["Story", "Bug", "Task", "Improvement"],
+    "default": "Story"
+  },
+  {
+    "key": "priority",
+    "label": "Priority",
+    "type": "select",
+    "jira_field": "priority",
+    "jira_type": "object_name",
+    "required": false,
+    "placeholder": "",
+    "options": ["Highest", "High", "Medium", "Low", "Lowest"],
+    "default": "Medium"
+  },
+  {
+    "key": "pod",
+    "label": "POD",
+    "type": "select",
+    "jira_field": "customfield_11009",
+    "jira_type": "object_value",
+    "required": true,
+    "placeholder": "",
+    "options": ["AI Engine", "Analytics", "Chat Widget", "CS", "DevOps", "Documentation", "Generic", "Hawkeye", "Heimdall", "Innovation", "LLM Pipeline", "Mobile SDK", "Passport", "Platform", "QA"],
+    "default": "Generic"
+  },
+  {
+    "key": "labels",
+    "label": "Labels",
+    "type": "tags",
+    "jira_field": "labels",
+    "jira_type": "array_string",
+    "required": false,
+    "placeholder": "e.g. ui, mobile, chat-widget",
+    "options": [],
+    "default": ""
+  },
+  {
+    "key": "components",
+    "label": "Components",
+    "type": "tags",
+    "jira_field": "components",
+    "jira_type": "array_object_name",
+    "required": false,
+    "placeholder": "e.g. Backend, Frontend",
+    "options": [],
+    "default": ""
+  },
+  {
+    "key": "description",
+    "label": "Description (Jira Markdown)",
+    "type": "textarea",
+    "jira_field": "description",
+    "jira_type": "string",
+    "required": false,
+    "placeholder": "Full ticket description...",
+    "options": [],
+    "default": ""
+  }
+]

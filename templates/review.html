@@ -1,0 +1,207 @@
+{% extends "base.html" %}
+{% block title %}Review Tickets{% endblock %}
+
+{% block head %}
+<style>
+  .ticket-card {
+    border: 2px solid #dfe1e6;
+    border-radius: 8px;
+    padding: 24px;
+    margin-bottom: 24px;
+    background: #fff;
+    transition: border-color .2s;
+  }
+  .ticket-card.excluded { opacity: .45; border-color: #dfe1e6; }
+  .ticket-card.included { border-color: #0052cc; }
+  .ticket-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 20px;
+  }
+  .ticket-number {
+    background: #0052cc;
+    color: #fff;
+    border-radius: 50%;
+    width: 32px; height: 32px;
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 700; font-size: .9rem; flex-shrink: 0;
+  }
+  .field-label {
+    font-size: .78rem; font-weight: 700; color: #5e6c84;
+    text-transform: uppercase; letter-spacing: .05em; margin-bottom: 4px;
+  }
+  .required-star { color: #de350b; }
+  .form-row { margin-bottom: 16px; }
+  .attachment-list { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+  .attachment-pill {
+    background: #f4f5f7; border: 1px solid #dfe1e6;
+    border-radius: 20px; padding: 4px 12px; font-size: .8rem;
+  }
+  .source-link { font-size: .8rem; color: #5e6c84; }
+  .source-link a { color: #0052cc; }
+  .sticky-bar {
+    position: sticky; bottom: 0; background: #fff;
+    border-top: 2px solid #dfe1e6; padding: 16px 32px;
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 16px; z-index: 100;
+  }
+  .sticky-bar .info { font-size: .88rem; color: #5e6c84; }
+</style>
+{% endblock %}
+
+{% block content %}
+{% if error %}
+<div class="alert alert-error">{{ error }}</div>
+{% endif %}
+
+<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;">
+  <div>
+    <h2 style="margin:0;">Review Proposed Tickets</h2>
+    <p style="font-size:.88rem;color:#5e6c84;margin-top:4px;">
+      Edit any field, uncheck tickets you don't want, then click Create Tickets.
+    </p>
+  </div>
+  <a href="/" class="btn btn-secondary">← Start Over</a>
+</div>
+
+<form id="reviewForm" action="/create" method="POST">
+  <input type="hidden" name="sess_id" value="{{ sess_id }}" />
+  <input type="hidden" name="tickets_json" id="ticketsJson" value="" />
+
+  {% for ticket in tickets %}
+  <div class="ticket-card included" id="card-{{ loop.index0 }}" data-idx="{{ loop.index0 }}">
+    <div class="ticket-header">
+      <div class="ticket-number">{{ loop.index }}</div>
+      <h3 style="margin:0;flex:1;">Ticket {{ loop.index }}</h3>
+      <label style="display:flex;align-items:center;gap:6px;cursor:pointer;margin-left:auto;">
+        <input type="checkbox" class="ticket-toggle" data-idx="{{ loop.index0 }}" checked
+          style="width:18px;height:18px;cursor:pointer;" />
+        <span style="font-size:.85rem;font-weight:600;">Include</span>
+      </label>
+    </div>
+
+    {# Render each configured field #}
+    <div class="form-grid">
+    {% for f in fields %}
+      {% set val = ticket.get(f.key, f.default) %}
+
+      {% if f.type == "textarea" %}
+      {# Full-width textarea #}
+      </div>{# close grid #}
+      <div class="form-row" style="margin-top:4px;">
+        <div class="field-label">{{ f.label }}{% if f.required %} <span class="required-star">*</span>{% endif %}</div>
+        <textarea class="field-input" data-idx="{{ loop.parent.index0 }}" data-field="{{ f.key }}"
+          rows="10" style="font-family:monospace;font-size:.82rem;">{{ val }}</textarea>
+      </div>
+      <div class="form-grid">{# re-open grid — closed at end #}
+
+      {% elif f.type == "select" %}
+      <div class="form-row">
+        <div class="field-label">{{ f.label }}{% if f.required %} <span class="required-star">*</span>{% endif %}</div>
+        <select class="field-input" data-idx="{{ loop.parent.index0 }}" data-field="{{ f.key }}">
+          {% for opt in f.options %}
+          <option value="{{ opt }}" {% if val == opt %}selected{% endif %}>{{ opt }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      {% elif f.type == "tags" %}
+      <div class="form-row">
+        <div class="field-label">{{ f.label }}{% if f.required %} <span class="required-star">*</span>{% endif %}</div>
+        <input type="text" class="field-input" data-idx="{{ loop.parent.index0 }}" data-field="{{ f.key }}_str"
+          placeholder="{{ f.placeholder }}"
+          value="{% if val is iterable and val is not string %}{{ val | join(', ') }}{% else %}{{ val }}{% endif %}" />
+      </div>
+
+      {% else %}
+      {# text #}
+      <div class="form-row {% if loop.first %}{% endif %}"
+        {% if loop.first %}style="grid-column:1/-1;"{% endif %}>
+        <div class="field-label">{{ f.label }}{% if f.required %} <span class="required-star">*</span>{% endif %}</div>
+        <input type="text" class="field-input" data-idx="{{ loop.parent.index0 }}" data-field="{{ f.key }}"
+          placeholder="{{ f.placeholder }}" value="{{ val }}" />
+      </div>
+      {% endif %}
+
+    {% endfor %}
+    </div>{# end grid #}
+
+    {% if ticket._source_url and ticket._source_url != 'pasted thread' %}
+    <div class="source-link" style="margin-top:8px;">Source: <a href="{{ ticket._source_url }}" target="_blank">{{ ticket._source_url }}</a></div>
+    {% endif %}
+  </div>
+  {% endfor %}
+
+  {% if attachments %}
+  <div class="card">
+    <h3>Attachments to be uploaded ({{ attachments | length }})</h3>
+    <div class="attachment-list">
+      {% for att in attachments %}
+      <span class="attachment-pill">📎 {{ att.name }}</span>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
+</form>
+
+<div class="sticky-bar">
+  <span class="info" id="selectedCount">{{ tickets | length }} ticket(s) selected</span>
+  <div style="display:flex;gap:12px;">
+    <a href="/" class="btn btn-secondary">Cancel</a>
+    <button type="button" class="btn btn-success" onclick="submitTickets()">Create Tickets in Jira →</button>
+  </div>
+</div>
+
+<script>
+  const tickets = {{ tickets | tojson }};
+  const fields  = {{ fields | tojson }};
+
+  // Build a map of tag fields for easy lookup
+  const tagFields = new Set(fields.filter(f => f.type === "tags").map(f => f.key));
+
+  function readFields() {
+    document.querySelectorAll(".field-input").forEach(el => {
+      const idx = parseInt(el.dataset.idx);
+      const field = el.dataset.field;
+      const val = el.value;
+
+      if (field.endsWith("_str")) {
+        // tags field — parse comma list
+        const realKey = field.slice(0, -4);
+        tickets[idx][realKey] = val.split(",").map(s => s.trim()).filter(Boolean);
+      } else {
+        tickets[idx][field] = val;
+      }
+    });
+
+    document.querySelectorAll(".ticket-toggle").forEach(cb => {
+      tickets[parseInt(cb.dataset.idx)]["_selected"] = cb.checked;
+    });
+  }
+
+  function updateCount() {
+    const checked = document.querySelectorAll(".ticket-toggle:checked").length;
+    document.getElementById("selectedCount").textContent = checked + " ticket(s) selected";
+  }
+
+  document.querySelectorAll(".ticket-toggle").forEach(cb => {
+    cb.addEventListener("change", function() {
+      const idx = parseInt(this.dataset.idx);
+      const card = document.getElementById("card-" + idx);
+      card.classList.toggle("included", this.checked);
+      card.classList.toggle("excluded", !this.checked);
+      updateCount();
+    });
+  });
+
+  function submitTickets() {
+    readFields();
+    const selected = tickets.filter(t => t["_selected"] !== false);
+    if (selected.length === 0) { alert("Please select at least one ticket."); return; }
+    document.getElementById("ticketsJson").value = JSON.stringify(tickets);
+    document.getElementById("reviewForm").submit();
+  }
+</script>
+{% endblock %}

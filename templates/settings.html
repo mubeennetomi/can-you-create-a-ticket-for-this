@@ -1,0 +1,462 @@
+{% extends "base.html" %}
+{% block title %}Settings — Can you create a ticket for this?{% endblock %}
+
+{% block head %}
+<style>
+  .section-title {
+    font-size: .7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .08em;
+    color: #5e6c84;
+    margin-bottom: 16px;
+    padding-bottom: 8px;
+    border-bottom: 2px solid #f4f5f7;
+  }
+  .status-dot {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    margin-right: 6px;
+    vertical-align: middle;
+  }
+  .dot-ok  { background: #00875a; }
+  .dot-err { background: #de350b; }
+
+  input[type="password"], input[type="text"] {
+    font-family: monospace;
+    font-size: .85rem;
+  }
+  .reveal-wrap { position: relative; }
+  .reveal-wrap input { padding-right: 80px; }
+  .reveal-btn {
+    position: absolute;
+    right: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    background: none;
+    border: none;
+    color: #5e6c84;
+    font-size: .78rem;
+    font-weight: 600;
+    cursor: pointer;
+    padding: 4px 6px;
+  }
+  .reveal-btn:hover { color: #0052cc; }
+  .help-text { font-size: .78rem; color: #5e6c84; margin-top: 6px; line-height: 1.6; }
+  .help-text a { color: #0052cc; text-decoration: none; }
+  .help-text a:hover { text-decoration: underline; }
+  .steps { margin: 6px 0 0 0; padding-left: 18px; }
+  .steps li { margin-bottom: 2px; }
+  details { margin-top: 6px; }
+  details summary {
+    font-size: .78rem; font-weight: 600; color: #0052cc;
+    cursor: pointer; user-select: none;
+  }
+  details summary:hover { text-decoration: underline; }
+  details[open] summary { margin-bottom: 6px; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;">
+  <h2 style="margin:0;">Settings</h2>
+  <div id="statusBar" style="font-size:.85rem;"></div>
+</div>
+
+{% if saved %}
+<div class="alert alert-success">Settings saved successfully.</div>
+{% endif %}
+{% if error %}
+<div class="alert alert-error">{{ error }}</div>
+{% endif %}
+
+<form action="/settings" method="POST">
+
+  <!-- Slack -->
+  <div class="card">
+    <div class="section-title">Slack</div>
+
+    <div class="form-row">
+      <label for="SLACK_USER_TOKEN">User Token <span style="color:#de350b;">*</span></label>
+      <div class="reveal-wrap">
+        <input type="password" id="SLACK_USER_TOKEN" name="SLACK_USER_TOKEN"
+          value="{{ config.SLACK_USER_TOKEN }}" placeholder="xoxp-..." />
+        <button type="button" class="reveal-btn" onclick="toggleReveal('SLACK_USER_TOKEN', this)">Show</button>
+      </div>
+      <div class="help-text">
+        Starts with <code>xoxp-</code>. Required to read DMs, private channels, and download attachments as you.
+        <details>
+          <summary>How to get this token</summary>
+          <ol class="steps">
+            <li>Go to <a href="https://api.slack.com/apps" target="_blank">api.slack.com/apps</a> and open your app (or create one)</li>
+            <li>In the left sidebar click <strong>OAuth &amp; Permissions</strong></li>
+            <li>Scroll to <strong>User Token Scopes</strong> and add: <code>channels:history</code>, <code>groups:history</code>, <code>im:history</code>, <code>mpim:history</code>, <code>files:read</code>, <code>users:read</code></li>
+            <li>Scroll up and click <strong>Install to Workspace</strong> → Allow</li>
+            <li>Copy the <strong>User OAuth Token</strong> (starts with <code>xoxp-</code>)</li>
+          </ol>
+        </details>
+      </div>
+    </div>
+
+    <div class="form-row">
+      <label for="SLACK_BOT_TOKEN">Bot Token <span style="font-weight:400;color:#5e6c84;">(optional)</span></label>
+      <div class="reveal-wrap">
+        <input type="password" id="SLACK_BOT_TOKEN" name="SLACK_BOT_TOKEN"
+          value="{{ config.SLACK_BOT_TOKEN }}" placeholder="xoxb-..." />
+        <button type="button" class="reveal-btn" onclick="toggleReveal('SLACK_BOT_TOKEN', this)">Show</button>
+      </div>
+      <div class="help-text">
+        Starts with <code>xoxb-</code>. Only needed as a fallback for public channels. The User Token above is preferred.
+        <details>
+          <summary>How to get this token</summary>
+          <ol class="steps">
+            <li>Same app on <a href="https://api.slack.com/apps" target="_blank">api.slack.com/apps</a> → <strong>OAuth &amp; Permissions</strong></li>
+            <li>Scroll to <strong>Bot Token Scopes</strong> and add: <code>channels:history</code>, <code>files:read</code>, <code>users:read</code></li>
+            <li>Reinstall the app to your workspace</li>
+            <li>Copy the <strong>Bot User OAuth Token</strong> (starts with <code>xoxb-</code>)</li>
+            <li>Invite the bot to any channel: <code>/invite @YourBotName</code></li>
+          </ol>
+        </details>
+      </div>
+    </div>
+  </div>
+
+  <!-- OpenAI -->
+  <div class="card">
+    <div class="section-title">OpenAI</div>
+    <div class="form-row">
+      <label for="OPENAI_API_KEY">API Key <span style="color:#de350b;">*</span></label>
+      <div class="reveal-wrap">
+        <input type="password" id="OPENAI_API_KEY" name="OPENAI_API_KEY"
+          value="{{ config.OPENAI_API_KEY }}" placeholder="sk-proj-..." />
+        <button type="button" class="reveal-btn" onclick="toggleReveal('OPENAI_API_KEY', this)">Show</button>
+      </div>
+      <div class="help-text">
+        Used to analyze Slack threads and generate ticket drafts with GPT-4o (supports vision for images).
+        <details>
+          <summary>How to get this key</summary>
+          <ol class="steps">
+            <li>Go to <a href="https://platform.openai.com/api-keys" target="_blank">platform.openai.com/api-keys</a></li>
+            <li>Click <strong>Create new secret key</strong></li>
+            <li>Give it a name (e.g. "Jira Ticket Creator") and click <strong>Create</strong></li>
+            <li>Copy the key immediately — it won't be shown again</li>
+            <li>Make sure your account has a paid plan or credits — GPT-4o requires billing</li>
+          </ol>
+        </details>
+      </div>
+    </div>
+  </div>
+
+  <!-- Jira -->
+  <div class="card">
+    <div class="section-title">Jira</div>
+
+    <div class="form-row" style="margin-bottom:20px;">
+      <div class="help-text" style="background:#f4f5f7;padding:12px;border-radius:6px;">
+        <strong>Before you start:</strong> You need an Atlassian account with permission to create issues in your Jira project.
+        <details>
+          <summary>How to find your Jira details</summary>
+          <ol class="steps">
+            <li><strong>Server URL</strong> — Your Atlassian domain, e.g. <code>https://yourcompany.atlassian.net</code>. You can see it in your browser when logged into Jira.</li>
+            <li><strong>Project Key</strong> — The short prefix on your ticket numbers, e.g. if tickets are <code>NET-123</code> the key is <code>NET</code>. Find it in Jira → Projects → your project → Project Settings.</li>
+            <li><strong>Account Email</strong> — The email you use to log into Atlassian.</li>
+            <li><strong>API Token</strong> — See below.</li>
+          </ol>
+        </details>
+      </div>
+    </div>
+
+    <div class="form-grid">
+      <div class="form-row">
+        <label for="JIRA_SERVER">Server URL <span style="color:#de350b;">*</span></label>
+        <input type="text" id="JIRA_SERVER" name="JIRA_SERVER"
+          value="{{ config.JIRA_SERVER }}"
+          placeholder="https://yourcompany.atlassian.net"
+          style="font-family:inherit;" />
+        <p class="help-text">Your Atlassian workspace URL. No trailing slash.</p>
+      </div>
+
+      <div class="form-row">
+        <label for="JIRA_PROJECT_KEY">Project Key <span style="color:#de350b;">*</span></label>
+        <input type="text" id="JIRA_PROJECT_KEY" name="JIRA_PROJECT_KEY"
+          value="{{ config.JIRA_PROJECT_KEY }}"
+          placeholder="NET" style="text-transform:uppercase;" />
+        <p class="help-text">The prefix on your ticket numbers, e.g. <code>NET</code> for NET-123.</p>
+      </div>
+
+      <div class="form-row">
+        <label for="JIRA_EMAIL">Account Email <span style="color:#de350b;">*</span></label>
+        <input type="text" id="JIRA_EMAIL" name="JIRA_EMAIL"
+          value="{{ config.JIRA_EMAIL }}"
+          placeholder="you@company.com" style="font-family:inherit;" />
+        <p class="help-text">The email address you use to log into Atlassian/Jira.</p>
+      </div>
+
+      <div class="form-row">
+        <label for="JIRA_API_TOKEN">API Token <span style="color:#de350b;">*</span></label>
+        <div class="reveal-wrap">
+          <input type="password" id="JIRA_API_TOKEN" name="JIRA_API_TOKEN"
+            value="{{ config.JIRA_API_TOKEN }}" placeholder="ATATT3x..." />
+          <button type="button" class="reveal-btn" onclick="toggleReveal('JIRA_API_TOKEN', this)">Show</button>
+        </div>
+        <div class="help-text">
+          Not your password — a separate API token.
+          <details>
+            <summary>How to generate an API token</summary>
+            <ol class="steps">
+              <li>Go to <a href="https://id.atlassian.com/manage-profile/security/api-tokens" target="_blank">id.atlassian.com → Security → API tokens</a></li>
+              <li>Click <strong>Create API token</strong></li>
+              <li>Give it a label (e.g. "Jira Ticket Creator") and click <strong>Create</strong></li>
+              <li>Copy the token — it won't be shown again after closing the dialog</li>
+              <li>Note: the token inherits your account's Jira permissions — no extra scopes needed</li>
+            </ol>
+          </details>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- App -->
+  <div class="card">
+    <div class="section-title">App</div>
+    <div class="form-row">
+      <label for="FLASK_SECRET_KEY">Flask Secret Key</label>
+      <div class="reveal-wrap">
+        <input type="password" id="FLASK_SECRET_KEY" name="FLASK_SECRET_KEY"
+          value="{{ config.FLASK_SECRET_KEY }}" placeholder="random secret string" />
+        <button type="button" class="reveal-btn" onclick="toggleReveal('FLASK_SECRET_KEY', this)">Show</button>
+      </div>
+      <div class="help-text">
+        Used to sign browser session cookies. Set this to any long random string.
+        <details>
+          <summary>How to generate one</summary>
+          <p style="margin-top:6px;">Run this in your terminal and paste the output here:</p>
+          <code style="display:block;background:#f4f5f7;padding:8px;border-radius:4px;margin-top:4px;">python3 -c "import secrets; print(secrets.token_hex(32))"</code>
+        </details>
+      </div>
+    </div>
+  </div>
+
+  <div style="display:flex;gap:12px;align-items:center;">
+    <button type="submit" class="btn btn-primary">Save Settings</button>
+    <button type="button" class="btn btn-secondary" onclick="testConnections()">Test Connections</button>
+    <span id="testResult" style="font-size:.85rem;"></span>
+  </div>
+
+</form>
+
+<!-- ================================================================ -->
+<!-- Jira Fields Editor -->
+<!-- ================================================================ -->
+{% if saved_fields %}
+<div class="alert alert-success" style="margin-top:24px;">Jira fields saved successfully.</div>
+{% endif %}
+
+<div class="card" style="margin-top:32px;">
+  <div class="section-title">Jira Ticket Fields</div>
+  <p style="font-size:.85rem;color:#5e6c84;margin-bottom:20px;">
+    Configure which fields appear on the ticket review screen. Drag to reorder.
+    The <strong>Jira Field ID</strong> is the API field name (e.g. <code>summary</code>, <code>customfield_11009</code>).
+    <strong>Jira Type</strong> controls how the value is sent to Jira.
+  </p>
+
+  <form action="/settings/fields" method="POST" id="fieldsForm">
+    <input type="hidden" name="fields_json" id="fieldsJson" />
+
+    <div id="fieldsList">
+      {% for f in fields %}
+      <div class="field-row" data-idx="{{ loop.index0 }}" style="border:1px solid #dfe1e6;border-radius:6px;padding:16px;margin-bottom:12px;background:#fafbfc;cursor:grab;">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;">
+          <span style="color:#5e6c84;font-size:1.1rem;cursor:grab;" title="Drag to reorder">⠿</span>
+          <strong style="flex:1;font-size:.9rem;">{{ f.label }}</strong>
+          <label style="display:flex;align-items:center;gap:5px;font-size:.8rem;font-weight:600;">
+            <input type="checkbox" class="f-required" {% if f.required %}checked{% endif %} /> Required
+          </label>
+          <button type="button" class="btn btn-danger" style="padding:4px 10px;font-size:.78rem;" onclick="removeField(this)">Remove</button>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:10px;">
+          <div>
+            <div class="field-label">Display Label</div>
+            <input type="text" class="f-label" value="{{ f.label }}" placeholder="e.g. Priority" />
+          </div>
+          <div>
+            <div class="field-label">Field Key (internal)</div>
+            <input type="text" class="f-key" value="{{ f.key }}" placeholder="e.g. priority" style="font-family:monospace;font-size:.82rem;" />
+          </div>
+          <div>
+            <div class="field-label">Jira Field ID</div>
+            <input type="text" class="f-jira-field" value="{{ f.jira_field }}" placeholder="e.g. priority" style="font-family:monospace;font-size:.82rem;" />
+          </div>
+          <div>
+            <div class="field-label">Jira Type</div>
+            <select class="f-jira-type">
+              {% for t in ["string","object_name","object_value","array_string","array_object_name"] %}
+              <option value="{{ t }}" {% if f.jira_type == t %}selected{% endif %}>{{ t }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div>
+            <div class="field-label">Input Type</div>
+            <select class="f-type">
+              {% for t in ["text","textarea","select","tags"] %}
+              <option value="{{ t }}" {% if f.type == t %}selected{% endif %}>{{ t }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div>
+            <div class="field-label">Default Value</div>
+            <input type="text" class="f-default" value="{{ f.default }}" placeholder="optional" />
+          </div>
+          <div style="grid-column:span 2;">
+            <div class="field-label">Placeholder</div>
+            <input type="text" class="f-placeholder" value="{{ f.placeholder }}" placeholder="hint shown in empty field" />
+          </div>
+        </div>
+        <div style="margin-top:10px;">
+          <div class="field-label">Options (for select — one per line)</div>
+          <textarea class="f-options" rows="3" style="font-family:monospace;font-size:.8rem;">{{ f.options | join('\n') }}</textarea>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+
+    <div style="display:flex;gap:12px;margin-top:16px;">
+      <button type="button" class="btn btn-secondary" onclick="addField()">+ Add Field</button>
+      <button type="button" class="btn btn-primary" onclick="saveFields()">Save Fields</button>
+    </div>
+  </form>
+</div>
+
+<script>
+  function toggleReveal(id, btn) {
+    const input = document.getElementById(id);
+    if (input.type === "password") {
+      input.type = "text";
+      btn.textContent = "Hide";
+    } else {
+      input.type = "password";
+      btn.textContent = "Show";
+    }
+  }
+
+  // ---- Jira Fields Editor ----
+
+  function readFields() {
+    const rows = document.querySelectorAll(".field-row");
+    return Array.from(rows).map(row => ({
+      label:      row.querySelector(".f-label").value.trim(),
+      key:        row.querySelector(".f-key").value.trim(),
+      jira_field: row.querySelector(".f-jira-field").value.trim(),
+      jira_type:  row.querySelector(".f-jira-type").value,
+      type:       row.querySelector(".f-type").value,
+      required:   row.querySelector(".f-required").checked,
+      default:    row.querySelector(".f-default").value.trim(),
+      placeholder:row.querySelector(".f-placeholder").value.trim(),
+      options:    row.querySelector(".f-options").value.split("\n").map(s=>s.trim()).filter(Boolean),
+    }));
+  }
+
+  function saveFields() {
+    const fields = readFields();
+    document.getElementById("fieldsJson").value = JSON.stringify(fields);
+    document.getElementById("fieldsForm").submit();
+  }
+
+  function removeField(btn) {
+    btn.closest(".field-row").remove();
+  }
+
+  function addField() {
+    const tpl = `
+    <div class="field-row" style="border:1px solid #dfe1e6;border-radius:6px;padding:16px;margin-bottom:12px;background:#fafbfc;cursor:grab;">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;">
+        <span style="color:#5e6c84;font-size:1.1rem;" title="Drag to reorder">⠿</span>
+        <strong style="flex:1;font-size:.9rem;">New Field</strong>
+        <label style="display:flex;align-items:center;gap:5px;font-size:.8rem;font-weight:600;">
+          <input type="checkbox" class="f-required" /> Required
+        </label>
+        <button type="button" class="btn btn-danger" style="padding:4px 10px;font-size:.78rem;" onclick="removeField(this)">Remove</button>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:10px;">
+        <div><div class="field-label">Display Label</div><input type="text" class="f-label" placeholder="e.g. Sprint" /></div>
+        <div><div class="field-label">Field Key (internal)</div><input type="text" class="f-key" placeholder="e.g. sprint" style="font-family:monospace;font-size:.82rem;" /></div>
+        <div><div class="field-label">Jira Field ID</div><input type="text" class="f-jira-field" placeholder="e.g. customfield_10020" style="font-family:monospace;font-size:.82rem;" /></div>
+        <div><div class="field-label">Jira Type</div>
+          <select class="f-jira-type">
+            <option value="string">string</option>
+            <option value="object_name">object_name</option>
+            <option value="object_value">object_value</option>
+            <option value="array_string">array_string</option>
+            <option value="array_object_name">array_object_name</option>
+          </select>
+        </div>
+        <div><div class="field-label">Input Type</div>
+          <select class="f-type">
+            <option value="text">text</option>
+            <option value="textarea">textarea</option>
+            <option value="select">select</option>
+            <option value="tags">tags</option>
+          </select>
+        </div>
+        <div><div class="field-label">Default Value</div><input type="text" class="f-default" placeholder="optional" /></div>
+        <div style="grid-column:span 2;"><div class="field-label">Placeholder</div><input type="text" class="f-placeholder" placeholder="hint shown in empty field" /></div>
+      </div>
+      <div style="margin-top:10px;">
+        <div class="field-label">Options (for select — one per line)</div>
+        <textarea class="f-options" rows="3" style="font-family:monospace;font-size:.8rem;"></textarea>
+      </div>
+    </div>`;
+    document.getElementById("fieldsList").insertAdjacentHTML("beforeend", tpl);
+  }
+
+  // Drag-to-reorder
+  let dragging = null;
+  document.addEventListener("dragstart", e => {
+    const row = e.target.closest(".field-row");
+    if (row) { dragging = row; row.style.opacity = ".4"; }
+  });
+  document.addEventListener("dragend", e => {
+    if (dragging) { dragging.style.opacity = "1"; dragging = null; }
+  });
+  document.addEventListener("dragover", e => {
+    e.preventDefault();
+    const row = e.target.closest(".field-row");
+    if (row && dragging && row !== dragging) {
+      const list = document.getElementById("fieldsList");
+      const rows = [...list.querySelectorAll(".field-row")];
+      const fromIdx = rows.indexOf(dragging);
+      const toIdx   = rows.indexOf(row);
+      if (fromIdx < toIdx) row.after(dragging); else row.before(dragging);
+    }
+  });
+  document.querySelectorAll(".field-row").forEach(r => r.setAttribute("draggable", "true"));
+  new MutationObserver(() => {
+    document.querySelectorAll(".field-row:not([draggable])").forEach(r => r.setAttribute("draggable","true"));
+  }).observe(document.getElementById("fieldsList"), {childList:true});
+
+  // ---- End Jira Fields Editor ----
+
+  function testConnections() {
+    const el = document.getElementById("testResult");
+    el.textContent = "Testing…";
+    el.style.color = "#5e6c84";
+    fetch("/api/status")
+      .then(r => r.json())
+      .then(data => {
+        if (data.ok) {
+          el.textContent = "✅ All credentials set";
+          el.style.color = "#00875a";
+        } else {
+          el.textContent = "⚠️ Missing: " + data.missing_env_vars.join(", ");
+          el.style.color = "#de350b";
+        }
+      })
+      .catch(() => {
+        el.textContent = "Could not reach server";
+        el.style.color = "#de350b";
+      });
+  }
+</script>
+{% endblock %}
