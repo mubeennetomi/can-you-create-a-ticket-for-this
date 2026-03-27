@@ -1,216 +1,143 @@
 # Can you create a ticket for this?
 
-A web app that turns Slack threads into Jira tickets using GPT-4o. Paste a Slack thread URL (or the text directly), review the AI-generated ticket, edit if needed, and create it in Jira — with all attachments included.
-
-![Flow: Slack thread → AI analysis → Review → Jira ticket]
+Turn any Slack thread into a Jira ticket in seconds. Paste a thread URL, review the AI-drafted ticket, edit if needed, and create it in Jira — attachments and all.
 
 ---
 
-## What it does
+## How it works
 
-1. **Reads a Slack thread** — via URL (public/private channels, DMs) or pasted text
-2. **Downloads attachments** — images and files from the thread are fetched automatically
-3. **Analyzes with GPT-4o** — extracts summary, description, issue type, priority, labels, and custom fields
-4. **Review screen** — you edit any field before anything is created
-5. **Creates the Jira ticket** — with all attachments uploaded
-
----
-
-## Requirements
-
-- Python 3.11+
-- A Slack account with permission to create a Slack app
-- An OpenAI account with GPT-4o access (paid plan)
-- A Jira/Atlassian account with permission to create issues
+1. **Paste a Slack thread URL** (or paste the text directly for DMs)
+2. **AI analyzes the conversation** — reads the full thread, downloads images and files
+3. **Review the draft** — edit any field before anything is created
+4. **One click** — ticket created in Jira with all attachments uploaded
 
 ---
 
-## Installation
+## Features
 
-### 1. Clone or download the project
+- Reads **any Slack thread** — public channels, private channels, DMs, group DMs
+- **Downloads attachments** from Slack automatically — images, files, screenshots
+- **AI-powered analysis** — extracts summary, description, issue type, priority, labels, and custom fields
+- **Supports OpenAI (GPT-4o), Anthropic (Claude), and Google Gemini** — switch providers any time
+- **Add instructions** — tell the AI extra context before it drafts the ticket
+- **Upload extra files** — drag and drop additional screenshots or docs
+- **Fully configurable Jira fields** — add, remove, reorder fields from the UI (including custom fields)
+- **Review before creating** — edit every field, deselect tickets you don't want
+
+---
+
+## Quick start
+
+### 1. Clone the repo
 
 ```bash
-git clone <repo-url>
-cd "Slack Jira Ticket Creator"
+git clone https://github.com/mubeennetomi/can-you-create-a-ticket-for-this
+cd "can-you-create-a-ticket-for-this"
 ```
 
-Or download the ZIP and extract it.
-
-### 2. Create a virtual environment and install dependencies
+### 2. Install dependencies
 
 ```bash
 python3 -m venv .venv
-source .venv/bin/activate        # Mac/Linux
-# .venv\Scripts\activate         # Windows
+source .venv/bin/activate      # Mac/Linux
+# .venv\Scripts\activate       # Windows
 
 pip install -r requirements.txt
 ```
 
-### 3. Set up credentials
-
-Copy the example env file:
-
-```bash
-cp .env.example .env
-```
-
-Then either edit `.env` directly, or run the app and fill in credentials via the **Settings** page (recommended).
-
-### 4. Run the app
+### 3. Run the app
 
 ```bash
 python app.py
 ```
 
-Open [http://localhost:5000](http://localhost:5000) in your browser.
+Open [http://localhost:5000](http://localhost:5000) — then go to **⚙️ Settings** to enter your credentials.
 
 ---
 
-## Getting your credentials
+## Credentials you'll need
 
-### Slack User Token (`xoxp-...`)
+| Credential | Where to get it |
+|---|---|
+| **Slack User Token** (`xoxp-`) | api.slack.com/apps → OAuth & Permissions → User Token Scopes → Install |
+| **OpenAI API Key** | platform.openai.com/api-keys |
+| **Anthropic API Key** | console.anthropic.com/settings/keys |
+| **Gemini API Key** | aistudio.google.com/app/apikey (free tier available) |
+| **Jira Server URL** | Your Atlassian domain e.g. `https://yourcompany.atlassian.net` |
+| **Jira Project Key** | The prefix on your tickets e.g. `NET` for NET-123 |
+| **Jira API Token** | id.atlassian.com/manage-profile/security/api-tokens |
 
-The user token lets the app read threads and download attachments as you — including DMs and private channels.
+All credentials are entered through the Settings UI — no need to edit files manually. Each field has step-by-step instructions built in.
 
-1. Go to [api.slack.com/apps](https://api.slack.com/apps) and click **Create New App** → **From scratch**
-2. Give it a name (e.g. "Ticket Creator") and pick your workspace
-3. In the left sidebar go to **OAuth & Permissions**
-4. Scroll to **User Token Scopes** and add:
-   - `channels:history`
-   - `groups:history`
-   - `im:history`
-   - `mpim:history`
-   - `files:read`
-   - `users:read`
-5. Scroll up and click **Install to Workspace** → **Allow**
-6. Copy the **User OAuth Token** (starts with `xoxp-`)
+---
 
-### OpenAI API Key (`sk-proj-...`)
+## AI providers
 
-1. Go to [platform.openai.com/api-keys](https://platform.openai.com/api-keys)
-2. Click **Create new secret key**
-3. Copy the key immediately — it won't be shown again
-4. Make sure your account has billing enabled (GPT-4o requires a paid plan)
+You can use any of the three — all support vision (images from threads are analyzed):
 
-### Jira credentials
-
-You need four things:
-
-| Field | Example | Where to find it |
+| Provider | Model | Notes |
 |---|---|---|
-| Server URL | `https://yourcompany.atlassian.net` | Your browser URL when logged into Jira |
-| Project Key | `NET` | The prefix on ticket numbers — NET-123 → key is `NET` |
-| Account Email | `you@company.com` | Your Atlassian login email |
-| API Token | `ATATT3x...` | See steps below |
+| **OpenAI** | GPT-4o | Requires paid plan |
+| **Anthropic** | Claude Opus | Requires paid plan |
+| **Google Gemini** | Gemini 1.5 Pro | Has a free tier |
 
-**Generating a Jira API token:**
-1. Go to [id.atlassian.com/manage-profile/security/api-tokens](https://id.atlassian.com/manage-profile/security/api-tokens)
-2. Click **Create API token**
-3. Give it a label (e.g. "Ticket Creator") and click **Create**
-4. Copy the token — it won't be shown again
-
-> **Note:** The API token inherits your Jira permissions. You need at least "Create Issues" permission in your project.
+Switch between providers any time in Settings without losing your other keys.
 
 ---
 
-## Configuration
+## Configuring Jira fields
 
-### Credentials (Settings page)
+The fields shown on the review screen are fully configurable in **Settings → Jira Ticket Fields**:
 
-After starting the app, go to [http://localhost:5000/settings](http://localhost:5000/settings) to enter and save all credentials. Click **Test Connections** to verify everything is working.
-
-### Jira fields (Settings → Jira Ticket Fields)
-
-The fields that appear on the review screen are fully configurable:
-
-- **Add** new fields (e.g. custom Jira fields like Sprint, Epic Link)
+- **Add** custom Jira fields (e.g. Sprint, Epic Link, any `customfield_XXXXX`)
 - **Remove** fields you don't use
 - **Reorder** by dragging
-- **Edit** labels, options, defaults, and Jira field IDs
+- Set options, defaults, and placeholders
 
-**Jira Type reference:**
-
-| Type | Use for | Example Jira fields |
-|---|---|---|
-| `string` | Plain text | `summary`, `description` |
-| `object_name` | Standard named objects | `issuetype`, `priority` |
-| `object_value` | Custom select/dropdown fields | `customfield_11009` (POD) |
-| `array_string` | List of strings | `labels` |
-| `array_object_name` | List of named objects | `components` |
-
-To find a custom field ID in Jira: go to **Jira Settings → Issues → Custom Fields**, click the field, and look at the URL — it ends in the field ID (e.g. `customfield_10020`).
+To find a custom field ID: Jira Settings → Issues → Custom Fields → click the field → check the URL for `customfield_XXXXX`.
 
 ---
 
-## Usage
+## Troubleshooting
 
-### Using a Slack thread URL
+**`channel_not_found`** — Use a Slack User Token (`xoxp-`), not a Bot Token. The user token can read DMs and private channels without needing bot invites.
 
-1. Open the Slack thread you want to turn into a ticket
-2. Click the **⋮ More actions** menu on any message → **Copy link**
-3. Paste the URL into the app
-4. Optionally add instructions or extra attachments
-5. Click **Analyze Threads →**
-
-### Using pasted text
-
-Use the **Paste Thread Text** tab for any case where you can't use a URL (e.g. copying from a screenshot). Include sender names for best results:
-
-```
-Alice: Should we add a loading spinner to the submit button?
-Bob: Yes — it should show while the request is in progress.
+**`proxies` error on startup** — Version conflict with httpx. Run:
+```bash
+pip install "openai>=1.52.0" "httpx>=0.27.0,<0.28.0"
 ```
 
-### Review screen
+**Jira required field error** — Your project has a required custom field not in the form. Go to Settings → Jira Ticket Fields, add it with the correct `customfield_XXXXX` ID.
 
-- Edit any field before creating
-- Uncheck tickets you don't want
-- All Slack attachments (and any extra files you uploaded) will be attached to the Jira ticket
+**Attachments not downloading** — Make sure your Slack User Token has `files:read` scope. Re-add the scope and reinstall the app to your workspace.
 
 ---
 
 ## Project structure
 
 ```
-├── app.py               # Flask web server — routes and session management
+├── app.py               # Flask web server
 ├── slack_client.py      # Fetches Slack threads and downloads attachments
-├── ai_analyzer.py       # GPT-4o analysis — converts thread to ticket JSON
+├── ai_analyzer.py       # OpenAI / Anthropic / Gemini analysis
 ├── jira_client.py       # Creates Jira issues and uploads attachments
 ├── fields_config.json   # Configurable Jira field definitions
 ├── requirements.txt
-├── .env.example         # Template for credentials
+├── .env.example
 └── templates/
-    ├── base.html        # Shared layout
+    ├── base.html
     ├── index.html       # Input page
     ├── review.html      # Ticket review/edit page
     ├── success.html     # Confirmation page
-    └── settings.html    # Credentials and field configuration
+    └── settings.html    # Credentials + field configuration
 ```
 
----
+## Requirements
 
-## Troubleshooting
+- Python 3.11+
+- A Slack account with permission to create a Slack app
+- One of: OpenAI, Anthropic, or Google account with API access
+- A Jira/Atlassian account with permission to create issues
 
-**`channel_not_found` error**
-The bot/user token doesn't have access to that channel. Use the User Token (`xoxp-`) and make sure you're a member of the channel.
+## Security
 
-**`proxies` error on startup**
-Your `httpx` version is incompatible. Run:
-```bash
-pip install "openai>=1.52.0" "httpx>=0.27.0,<0.28.0"
-```
-
-**Jira field error (e.g. `POD is required`)**
-Your Jira project has required custom fields. Go to **Settings → Jira Ticket Fields**, add the missing field with its `customfield_XXXXX` ID, and set it as required.
-
-**Attachments not downloading**
-Make sure your Slack User Token has the `files:read` scope. Re-add the scope and reinstall the app to your workspace.
-
----
-
-## Security notes
-
-- Credentials are stored in the `.env` file on your machine — never commit this file to version control
-- `.env` is already in `.gitignore` if you use git
-- API tokens are masked by default in the Settings UI
-- This app is intended for local use — if deploying, use a proper secrets manager (e.g. AWS Secrets Manager, Railway env vars)
+Credentials are stored in a local `.env` file which is excluded from git via `.gitignore`. API tokens are masked by default in the Settings UI. If deploying, use a proper secrets manager instead of `.env`.

@@ -9,7 +9,7 @@ from pathlib import Path
 from dotenv import load_dotenv
 from flask import Flask, jsonify, redirect, render_template, request, session, url_for
 
-from ai_analyzer import AIAnalyzer
+from ai_analyzer import create_analyzer
 from jira_client import JiraCreator
 from slack_client import SlackFetcher
 
@@ -41,11 +41,18 @@ def get_slack_fetcher() -> SlackFetcher:
     return SlackFetcher(token)
 
 
-def get_ai_analyzer() -> AIAnalyzer:
-    key = os.environ.get("OPENAI_API_KEY", "")
+def get_ai_analyzer():
+    provider = os.environ.get("AI_PROVIDER", "openai").lower()
+    key_map = {
+        "openai":    "OPENAI_API_KEY",
+        "anthropic": "ANTHROPIC_API_KEY",
+        "gemini":    "GEMINI_API_KEY",
+    }
+    env_var = key_map.get(provider, "OPENAI_API_KEY")
+    key = os.environ.get(env_var, "")
     if not key:
-        raise RuntimeError("OPENAI_API_KEY not set")
-    return AIAnalyzer(key)
+        raise RuntimeError(f"{env_var} not set for provider '{provider}'")
+    return create_analyzer(provider, key)
 
 
 def get_jira_creator() -> JiraCreator:
@@ -229,11 +236,11 @@ def create():
 
 ENV_KEYS = [
     "SLACK_USER_TOKEN", "SLACK_BOT_TOKEN",
-    "OPENAI_API_KEY",
+    "AI_PROVIDER",
+    "OPENAI_API_KEY", "ANTHROPIC_API_KEY", "GEMINI_API_KEY",
     "JIRA_SERVER", "JIRA_EMAIL", "JIRA_API_TOKEN", "JIRA_PROJECT_KEY",
     "FLASK_SECRET_KEY",
 ]
-REQUIRED_KEYS = ["OPENAI_API_KEY", "JIRA_SERVER", "JIRA_EMAIL", "JIRA_API_TOKEN", "JIRA_PROJECT_KEY"]
 
 
 def _get_env_file_path() -> Path:
@@ -307,10 +314,12 @@ def settings():
 @app.route("/api/status")
 def status():
     missing = []
-    for var in ["OPENAI_API_KEY", "JIRA_SERVER", "JIRA_EMAIL", "JIRA_API_TOKEN", "JIRA_PROJECT_KEY"]:
+    provider = os.environ.get("AI_PROVIDER", "openai").lower()
+    ai_key = {"openai": "OPENAI_API_KEY", "anthropic": "ANTHROPIC_API_KEY", "gemini": "GEMINI_API_KEY"}.get(provider, "OPENAI_API_KEY")
+    for var in [ai_key, "JIRA_SERVER", "JIRA_EMAIL", "JIRA_API_TOKEN", "JIRA_PROJECT_KEY"]:
         if not os.environ.get(var):
             missing.append(var)
-    return jsonify({"ok": len(missing) == 0, "missing_env_vars": missing})
+    return jsonify({"ok": len(missing) == 0, "missing_env_vars": missing, "provider": provider})
 
 
 if __name__ == "__main__":

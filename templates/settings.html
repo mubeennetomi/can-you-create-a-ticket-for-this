@@ -123,30 +123,92 @@
     </div>
   </div>
 
-  <!-- OpenAI -->
+  <!-- AI Provider -->
   <div class="card">
-    <div class="section-title">OpenAI</div>
+    <div class="section-title">AI Provider</div>
+
     <div class="form-row">
-      <label for="OPENAI_API_KEY">API Key <span style="color:#de350b;">*</span></label>
-      <div class="reveal-wrap">
-        <input type="password" id="OPENAI_API_KEY" name="OPENAI_API_KEY"
-          value="{{ config.OPENAI_API_KEY }}" placeholder="sk-proj-..." />
-        <button type="button" class="reveal-btn" onclick="toggleReveal('OPENAI_API_KEY', this)">Show</button>
-      </div>
-      <div class="help-text">
-        Used to analyze Slack threads and generate ticket drafts with GPT-4o (supports vision for images).
-        <details>
-          <summary>How to get this key</summary>
-          <ol class="steps">
-            <li>Go to <a href="https://platform.openai.com/api-keys" target="_blank">platform.openai.com/api-keys</a></li>
-            <li>Click <strong>Create new secret key</strong></li>
-            <li>Give it a name (e.g. "Jira Ticket Creator") and click <strong>Create</strong></li>
-            <li>Copy the key immediately — it won't be shown again</li>
-            <li>Make sure your account has a paid plan or credits — GPT-4o requires billing</li>
-          </ol>
-        </details>
+      <label for="AI_PROVIDER">Active Provider <span style="color:#de350b;">*</span></label>
+      <select id="AI_PROVIDER" name="AI_PROVIDER" onchange="switchProvider(this.value)">
+        {% for p in [("openai", "OpenAI (GPT-4o)"), ("anthropic", "Anthropic (Claude)"), ("gemini", "Google Gemini")] %}
+        <option value="{{ p[0] }}" {% if config.get('AI_PROVIDER', 'openai') == p[0] %}selected{% endif %}>{{ p[1] }}</option>
+        {% endfor %}
+      </select>
+      <p class="help-text">Only the selected provider's key is required. You can store multiple keys and switch freely.</p>
+    </div>
+
+    <!-- OpenAI -->
+    <div class="provider-section" id="provider-openai">
+      <div class="form-row">
+        <label for="OPENAI_API_KEY">OpenAI API Key</label>
+        <div class="reveal-wrap">
+          <input type="password" id="OPENAI_API_KEY" name="OPENAI_API_KEY"
+            value="{{ config.OPENAI_API_KEY }}" placeholder="sk-proj-..." />
+          <button type="button" class="reveal-btn" onclick="toggleReveal('OPENAI_API_KEY', this)">Show</button>
+        </div>
+        <div class="help-text">
+          Uses <strong>GPT-4o</strong> — supports vision (images from Slack threads are analyzed).
+          <details>
+            <summary>How to get this key</summary>
+            <ol class="steps">
+              <li>Go to <a href="https://platform.openai.com/api-keys" target="_blank">platform.openai.com/api-keys</a></li>
+              <li>Click <strong>Create new secret key</strong>, give it a name, click <strong>Create</strong></li>
+              <li>Copy immediately — won't be shown again</li>
+              <li>Requires a paid plan or credits (GPT-4o is not free)</li>
+            </ol>
+          </details>
+        </div>
       </div>
     </div>
+
+    <!-- Anthropic -->
+    <div class="provider-section" id="provider-anthropic" style="display:none;">
+      <div class="form-row">
+        <label for="ANTHROPIC_API_KEY">Anthropic API Key</label>
+        <div class="reveal-wrap">
+          <input type="password" id="ANTHROPIC_API_KEY" name="ANTHROPIC_API_KEY"
+            value="{{ config.ANTHROPIC_API_KEY }}" placeholder="sk-ant-..." />
+          <button type="button" class="reveal-btn" onclick="toggleReveal('ANTHROPIC_API_KEY', this)">Show</button>
+        </div>
+        <div class="help-text">
+          Uses <strong>Claude Opus</strong> — supports vision (images from Slack threads are analyzed).
+          <details>
+            <summary>How to get this key</summary>
+            <ol class="steps">
+              <li>Go to <a href="https://console.anthropic.com/settings/keys" target="_blank">console.anthropic.com/settings/keys</a></li>
+              <li>Click <strong>Create Key</strong>, give it a name</li>
+              <li>Copy immediately — won't be shown again</li>
+              <li>Requires a paid plan or credits</li>
+            </ol>
+          </details>
+        </div>
+      </div>
+    </div>
+
+    <!-- Gemini -->
+    <div class="provider-section" id="provider-gemini" style="display:none;">
+      <div class="form-row">
+        <label for="GEMINI_API_KEY">Google Gemini API Key</label>
+        <div class="reveal-wrap">
+          <input type="password" id="GEMINI_API_KEY" name="GEMINI_API_KEY"
+            value="{{ config.GEMINI_API_KEY }}" placeholder="AIza..." />
+          <button type="button" class="reveal-btn" onclick="toggleReveal('GEMINI_API_KEY', this)">Show</button>
+        </div>
+        <div class="help-text">
+          Uses <strong>Gemini 1.5 Pro</strong> — supports vision (images from Slack threads are analyzed).
+          <details>
+            <summary>How to get this key</summary>
+            <ol class="steps">
+              <li>Go to <a href="https://aistudio.google.com/app/apikey" target="_blank">aistudio.google.com/app/apikey</a></li>
+              <li>Click <strong>Create API key</strong></li>
+              <li>Copy the key</li>
+              <li>Has a free tier — no billing required to start</li>
+            </ol>
+          </details>
+        </div>
+      </div>
+    </div>
+
   </div>
 
   <!-- Jira -->
@@ -330,6 +392,14 @@
 </div>
 
 <script>
+  function switchProvider(val) {
+    document.querySelectorAll(".provider-section").forEach(el => el.style.display = "none");
+    const el = document.getElementById("provider-" + val);
+    if (el) el.style.display = "block";
+  }
+  // Show correct provider section on load
+  switchProvider(document.getElementById("AI_PROVIDER").value);
+
   function toggleReveal(id, btn) {
     const input = document.getElementById(id);
     if (input.type === "password") {

@@ -1,11 +1,8 @@
-"""AI analyzer: uses OpenAI to extract Jira ticket drafts from Slack threads."""
+"""AI analyzer: supports OpenAI, Anthropic, and Google Gemini."""
 
 import base64
 import json
-import os
 from pathlib import Path
-
-from openai import OpenAI
 
 
 SYSTEM_PROMPT = """You are a product/engineering assistant that turns Slack conversation threads into well-structured Jira tickets.
@@ -32,80 +29,157 @@ If it's a single ticket, return an array with one object.
 IMPORTANT: Return ONLY valid JSON — an array of ticket objects, no prose before or after.
 """
 
+USER_PROMPT = "Here is the Slack thread transcript:\n\n{transcript}\n\nPlease create the Jira ticket(s). Return a JSON array of ticket objects."
 
-class AIAnalyzer:
+
+def _guess_mimetype(path: Path) -> str:
+    return {
+        ".png": "image/png",
+        ".jpg": "image/jpeg",
+        ".jpeg": "image/jpeg",
+        ".gif": "image/gif",
+        ".webp": "image/webp",
+        ".pdf": "application/pdf",
+    }.get(path.suffix.lower(), "application/octet-stream")
+
+
+def _parse_response(raw: str) -> list[dict]:
+    if raw.startswith("```"):
+        raw = raw.split("```", 2)[1]
+        if raw.startswith("json"):
+            raw = raw[4:]
+        raw = raw.rsplit("```", 1)[0].strip()
+    data = json.loads(raw.strip())
+    if isinstance(data, list):
+        return data
+    if "tickets" in data:
+        return data["tickets"]
+    return [data]
+
+
+# ---------------------------------------------------------------------------
+# OpenAI
+# ---------------------------------------------------------------------------
+
+class OpenAIAnalyzer:
     def __init__(self, api_key: str):
+        from openai import OpenAI
         self.client = OpenAI(api_key=api_key)
 
-    def analyze(self, thread_transcript: str, attachment_paths: list[str] | None = None) -> list[dict]:
-        """
-        Analyze a Slack thread and return a list of proposed Jira ticket dicts.
-        attachment_paths: local file paths to images to include in the prompt.
-        """
-        messages = self._build_messages(thread_transcript, attachment_paths or [])
+    def analyze(self, transcript: str, attachment_paths: list[str] | None = None) -> list[dict]:
+        user_content = []
+        for path in (attachment_paths or []):
+            p = Path(path)
+            if not p.exists():
+                continue
+            mime = _guess_mimetype(p)
+            if not mime.startswith("image/"):
+                continue
+            try:
+                data = base64.standard_b64encode(p.read_bytes()).decode()
+                user_content.append({"type": "image_url", "image_url": {"url": f"data:{mime};base64,{data}", "detail": "high"}})
+            except Exception as e:
+                print(f"Warning: could not encode {path}: {e}")
+
+        user_content.append({"type": "text", "text": USER_PROMPT.format(transcript=transcript)})
 
         response = self.client.chat.completions.create(
             model="gpt-4o",
             max_tokens=4096,
-            messages=messages,
+            messages=[
+                {"role": "system", "content": SYSTEM_PROMPT},
+                {"role": "user", "content": user_content},
+            ],
             response_format={"type": "json_object"},
         )
+        return _parse_response(response.choices[0].message.content)
 
-        raw = response.choices[0].message.content.strip()
 
-        data = json.loads(raw)
-        # Model may return {"tickets": [...]} or directly [...]
-        if isinstance(data, list):
-            tickets = data
-        elif "tickets" in data:
-            tickets = data["tickets"]
-        else:
-            # Single ticket returned as object
-            tickets = [data]
+# ---------------------------------------------------------------------------
+# Anthropic
+# ---------------------------------------------------------------------------
 
-        return tickets
+class AnthropicAnalyzer:
+    def __init__(self, api_key: str):
+        import anthropic
+        self.client = anthropic.Anthropic(api_key=api_key)
 
-    def _build_messages(self, transcript: str, attachment_paths: list[str]) -> list:
-        user_content = []
-
-        # Add images (GPT-4o supports vision)
-        for path in attachment_paths:
+    def analyze(self, transcript: str, attachment_paths: list[str] | None = None) -> list[dict]:
+        content = []
+        for path in (attachment_paths or []):
             p = Path(path)
             if not p.exists():
                 continue
-            mimetype = self._guess_mimetype(p)
-            if not mimetype.startswith("image/"):
+            mime = _guess_mimetype(p)
+            if not mime.startswith("image/"):
                 continue
             try:
-                data = base64.standard_b64encode(p.read_bytes()).decode("utf-8")
-                user_content.append({
-                    "type": "image_url",
-                    "image_url": {
-                        "url": f"data:{mimetype};base64,{data}",
-                        "detail": "high",
-                    },
-                })
+                data = base64.standard_b64encode(p.read_bytes()).decode()
+                content.append({"type": "image", "source": {"type": "base64", "media_type": mime, "data": data}})
             except Exception as e:
-                print(f"Warning: could not encode image {path}: {e}")
+                print(f"Warning: could not encode {path}: {e}")
 
-        user_content.append({
-            "type": "text",
-            "text": f"Here is the Slack thread transcript:\n\n{transcript}\n\nPlease create the Jira ticket(s). Return a JSON array of ticket objects.",
-        })
+        content.append({"type": "text", "text": USER_PROMPT.format(transcript=transcript)})
 
-        return [
-            {"role": "system", "content": SYSTEM_PROMPT},
-            {"role": "user", "content": user_content},
-        ]
+        response = self.client.messages.create(
+            model="claude-opus-4-6",
+            max_tokens=4096,
+            system=SYSTEM_PROMPT,
+            messages=[{"role": "user", "content": content}],
+        )
+        return _parse_response(response.content[0].text)
 
-    def _guess_mimetype(self, path: Path) -> str:
-        ext = path.suffix.lower()
-        mapping = {
-            ".png": "image/png",
-            ".jpg": "image/jpeg",
-            ".jpeg": "image/jpeg",
-            ".gif": "image/gif",
-            ".webp": "image/webp",
-            ".pdf": "application/pdf",
-        }
-        return mapping.get(ext, "application/octet-stream")
+
+# ---------------------------------------------------------------------------
+# Google Gemini
+# ---------------------------------------------------------------------------
+
+class GeminiAnalyzer:
+    def __init__(self, api_key: str):
+        import google.generativeai as genai
+        genai.configure(api_key=api_key)
+        self.model = genai.GenerativeModel(
+            model_name="gemini-1.5-pro",
+            system_instruction=SYSTEM_PROMPT,
+        )
+
+    def analyze(self, transcript: str, attachment_paths: list[str] | None = None) -> list[dict]:
+        import google.generativeai as genai
+        parts = []
+        for path in (attachment_paths or []):
+            p = Path(path)
+            if not p.exists():
+                continue
+            mime = _guess_mimetype(p)
+            if not mime.startswith("image/"):
+                continue
+            try:
+                parts.append({"mime_type": mime, "data": p.read_bytes()})
+            except Exception as e:
+                print(f"Warning: could not read {path}: {e}")
+
+        parts.append(USER_PROMPT.format(transcript=transcript))
+
+        response = self.model.generate_content(
+            parts,
+            generation_config={"response_mime_type": "application/json", "max_output_tokens": 4096},
+        )
+        return _parse_response(response.text)
+
+
+# ---------------------------------------------------------------------------
+# Factory
+# ---------------------------------------------------------------------------
+
+def create_analyzer(provider: str, api_key: str):
+    """Return the right analyzer for the given provider."""
+    if provider == "anthropic":
+        return AnthropicAnalyzer(api_key)
+    elif provider == "gemini":
+        return GeminiAnalyzer(api_key)
+    else:
+        return OpenAIAnalyzer(api_key)
+
+
+# Legacy alias so existing imports don't break
+AIAnalyzer = OpenAIAnalyzer
