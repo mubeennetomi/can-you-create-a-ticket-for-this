@@ -2,7 +2,9 @@
 
 Turn any Slack thread into a Jira ticket in seconds. Paste a thread URL, review the AI-drafted ticket, edit if needed, and create it in Jira — attachments and all.
 
-![can-you-create](https://github.com/user-attachments/assets/36c64ec5-b885-4289-887f-543c03d32f52)
+![can-you-create](https://github.com/user-attachments/assets/4758dec8-6dd9-414b-98c3-d5cf12ae3984)
+
+<img width="563" height="533" alt="Can-you-create-tool" src="https://github.com/user-attachments/assets/ff7c167c-9a47-47ee-ad59-d37ec3d42ac2" />
 
 ---
 
