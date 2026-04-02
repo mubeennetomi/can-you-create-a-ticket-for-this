@@ -81,6 +81,9 @@
       </label>
     </div>
 
+    {# Capture outer loop index before entering inner loop #}
+    {% set ticket_idx = loop.index0 %}
+
     {# Render each configured field #}
     <div class="form-grid">
     {% for f in fields %}
@@ -91,7 +94,7 @@
       </div>{# close grid #}
       <div class="form-row" style="margin-top:4px;">
         <div class="field-label">{{ f.label }}{% if f.required %} <span class="required-star">*</span>{% endif %}</div>
-        <textarea class="field-input" data-idx="{{ loop.parent.index0 }}" data-field="{{ f.key }}"
+        <textarea class="field-input" data-idx="{{ ticket_idx }}" data-field="{{ f.key }}"
           rows="10" style="font-family:monospace;font-size:.82rem;">{{ val }}</textarea>
       </div>
       <div class="form-grid">{# re-open grid — closed at end #}
@@ -99,7 +102,7 @@
       {% elif f.type == "select" %}
       <div class="form-row">
         <div class="field-label">{{ f.label }}{% if f.required %} <span class="required-star">*</span>{% endif %}</div>
-        <select class="field-input" data-idx="{{ loop.parent.index0 }}" data-field="{{ f.key }}">
+        <select class="field-input" data-idx="{{ ticket_idx }}" data-field="{{ f.key }}">
           {% for opt in f.options %}
           <option value="{{ opt }}" {% if val == opt %}selected{% endif %}>{{ opt }}</option>
           {% endfor %}
@@ -109,17 +112,16 @@
       {% elif f.type == "tags" %}
       <div class="form-row">
         <div class="field-label">{{ f.label }}{% if f.required %} <span class="required-star">*</span>{% endif %}</div>
-        <input type="text" class="field-input" data-idx="{{ loop.parent.index0 }}" data-field="{{ f.key }}_str"
+        <input type="text" class="field-input" data-idx="{{ ticket_idx }}" data-field="{{ f.key }}_str"
           placeholder="{{ f.placeholder }}"
           value="{% if val is iterable and val is not string %}{{ val | join(', ') }}{% else %}{{ val }}{% endif %}" />
       </div>
 
       {% else %}
       {# text #}
-      <div class="form-row {% if loop.first %}{% endif %}"
-        {% if loop.first %}style="grid-column:1/-1;"{% endif %}>
+      <div class="form-row" {% if loop.first %}style="grid-column:1/-1;"{% endif %}>
         <div class="field-label">{{ f.label }}{% if f.required %} <span class="required-star">*</span>{% endif %}</div>
-        <input type="text" class="field-input" data-idx="{{ loop.parent.index0 }}" data-field="{{ f.key }}"
+        <input type="text" class="field-input" data-idx="{{ ticket_idx }}" data-field="{{ f.key }}"
           placeholder="{{ f.placeholder }}" value="{{ val }}" />
       </div>
       {% endif %}
